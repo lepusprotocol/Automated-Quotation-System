@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>【株式会社Bfull】3Dプリント自動見積システム (完全復活版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; }
+        #viewer-container { background-color: #f0f0f0; border-radius: 0.5rem; overflow: hidden; position: relative; }
+        .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 50; font-weight: bold; display: none; }
+        
+        #drop-zone {
+            position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.8); border: 3px dashed #9ca3af; margin: 10px; border-radius: 8px;
+            color: #4b5563; font-weight: bold; cursor: pointer; z-index: 20; transition: all 0.2s;
+        }
+        #drop-zone:hover, #drop-zone.dragover { background: rgba(239, 246, 255, 0.9); border-color: #3b82f6; color: #2563eb; }
+        
+        .quote-table th { background-color: #f3f4f6; color: #374151; font-weight: 600; text-align: left; padding: 0.75rem 1rem; font-size: 0.875rem; white-space: nowrap; }
+        .quote-table td { border-bottom: 1px solid #e5e7eb; padding: 0.75rem 1rem; vertical-align: middle; }
+        .quote-table tr:hover { background-color: #f9fafb; }
+        .selected-row { background-color: #eff6ff !important; border-left: 4px solid #2563eb; }
+        .error-row { background-color: #fef2f2 !important; border-left: 4px solid #ef4444; }
+        .warning-row { background-color: #fffbeb !important; border-left: 4px solid #f59e0b; }
+        .thumb-img { width: 64px; height: 64px; object-fit: contain; background-color: #fff; border: 1px solid #eee; border-radius: 4px; }
+
+        @media (max-width: 640px) {
+            .quote-table thead { display: none; }
+            .quote-table tr { display: block; border-bottom: 2px solid #e5e7eb; margin-bottom: 1rem; background: white; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+            .quote-table td { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #eee; padding: 0.5rem 0; text-align: right; }
+            .quote-table td::before { content: attr(data-label); font-weight: bold; color: #6b7280; font-size: 0.75rem; text-align: left; margin-right: 1rem; }
+        }
+        
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            #top-section { display: none !important; }
+            body { background: white !important; padding: 0 !important; }
+        }
+        ._formrun_gotcha { position: absolute!important; height: 1px; width: 1px; overflow: hidden; }
+    </style>
+    
+    <script type="importmap">
+        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+    </script>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen p-2 md:p-8">
+
+    <div class="max-w-7xl mx-auto bg-white shadow-lg rounded-xl overflow-hidden relative">
+        
+        <div class="bg-orange-500 text-white p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center no-print gap-4">
+            <div>
+                <h1 class="text-2xl font-bold flex items-center gap-3">
+                    <img src="http://3dprinter.be-full.jp/wp-content/uploads/2025/12/logo02.png" alt="Bfull Logo" class="h-8 w-auto mr-2">
+                    3Dプリント 自動見積シミュレーター
+                    <span class="text-xs md:text-sm font-mono font-normal opacity-60 bg-black px-2 py-1 rounded">Ver 0.9.19 (Revival)</span>
+                </h1>
+                <p class="text-xs md:text-sm opacity-80 mt-1">複数のSTLファイルをアップロードし、形状チェックと見積もりが可能です。</p>
+            </div>
+            <div class="text-right w-full md:w-auto">
+                <p class="text-xs md:text-sm opacity-70">概算御見積合計 (税抜)</p>
+                <p class="text-3xl md:text-4xl font-extrabold" id="header-grand-total">0 円</p>
+            </div>
+        </div>
+
+        <div id="top-section" class="grid grid-cols-1 lg:grid-cols-12 gap-0">
+            <div class="lg:col-span-7 p-4 md:p-6 border-b lg:border-b-0 lg:border-r border-gray-200 order-2 lg:order-1">
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="font-bold text-gray-700 text-sm md:text-base">3Dプレビュー <span id="preview-filename" class="text-xs md:text-sm font-normal text-gray-500 ml-2 block md:inline"></span></h2>
+                </div>
+                <div id="viewer-container" class="h-64 md:h-96 lg:h-[500px] relative">
+                    <div id="loading-overlay" class="loading-overlay">解析中...</div>
+                    <canvas id="three-canvas" class="w-full h-full block"></canvas>
+                    <div id="drop-zone">
+                        <svg class="w-10 h-10 mb-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <span class="text-sm md:text-base">STLファイルをドロップ</span>
+                        <input type="file" id="drop-input" accept=".stl" multiple class="hidden">
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-5 p-4 md:p-6 bg-gray-50 flex flex-col order-1 lg:order-2">
+                <div class="mb-4 md:mb-6 bg-white p-4 rounded-lg shadow-sm border border-blue-100 no-print">
+                    <label class="block mb-2 font-bold text-gray-700">ファイルの追加</label>
+                    <input type="file" id="file-input" accept=".stl" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
+                </div>
+
+                <div id="selected-item-details" class="hidden">
+                    <div id="status-alert-box" class="hidden mb-4 p-3 rounded text-sm font-bold flex items-start gap-2"></div>
+                    <h3 class="font-bold text-gray-800 border-b pb-2 mb-3 text-sm md:text-base">選択中のモデル詳細</h3>
+                    <div class="grid grid-cols-2 gap-4 text-xs md:text-sm mb-4">
+                        <div><span class="block text-gray-500 text-xs">計算サイズ</span><span class="font-mono font-bold" id="detail-size">-</span></div>
+                        <div><span class="block text-gray-500 text-xs">体積</span><span class="font-mono font-bold" id="detail-volume">-</span></div>
+                        <div><span class="block text-gray-500 text-xs">表面積</span><span class="font-mono font-bold" id="detail-area">-</span></div>
+                        <div><span class="block text-gray-500 text-xs">予想造形時間</span><span class="font-mono font-bold" id="detail-time">-</span></div>
+                    </div>
+                    <div class="bg-white rounded border p-3 text-xs md:text-sm">
+                        <div class="flex justify-between py-1 border-b border-dashed"><span>材料費</span><span id="breakdown-material">0 円</span></div>
+                        <div class="flex justify-between py-1 border-b border-dashed"><span>技術料</span><span id="breakdown-labor">0 円</span></div>
+                        <div class="flex justify-between py-1 border-b text-green-700 font-bold"><span>マシンチャージ</span><span id="breakdown-machine">0 円</span></div>
+                        <div class="flex justify-between py-1 border-b text-blue-800 font-bold"><span>設計費</span><span id="breakdown-design">0 円</span></div>
+                        <div class="mt-2 pt-2 font-bold flex justify-between text-sm"><span>現在の単価</span><span id="breakdown-variable-unit">0 円</span></div>
+                    </div>
+                </div>
+                <div id="empty-state-msg" class="flex-1 flex items-center justify-center text-gray-400 text-sm py-4">
+                    <p>モデルを選択すると詳細が表示されます</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="bottom-section" class="border-t border-gray-200 p-4 md:p-6">
+            <div class="flex justify-between items-end mb-4 gap-2">
+                <h3 class="text-lg font-bold text-gray-800">見積もり明細リスト</h3>
+                <div class="flex items-center gap-2 bg-gray-100 p-2 rounded no-print">
+                    <span class="text-xs font-bold text-gray-600">数量一括:</span>
+                    <input type="number" id="bulk-qty-input" min="1" value="1" class="w-16 border rounded p-1 text-center text-sm">
+                    <button onclick="applyBulkQuantity()" class="bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded">適用</button>
+                    <button onclick="clearAllItems()" class="text-red-500 hover:text-red-700 ml-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full quote-table">
+                    <thead>
+                        <tr><th>#</th><th>状態</th><th>ファイル名</th><th>判定 / サイズ</th><th class="text-right">単価</th><th class="w-20 text-center">数量</th><th class="text-right">設計費</th><th class="text-right">小計</th><th class="no-print"></th></tr>
+                    </thead>
+                    <tbody id="quote-list-body"></tbody>
+                    <tfoot class="bg-gray-50 font-bold hidden md:table-footer-group">
+                        <tr><td colspan="7" class="text-right py-4 text-gray-600">概算合計 (税抜)</td><td class="text-right text-xl text-blue-900" id="footer-grand-total">0 円</td><td class="no-print"></td></tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="mt-6 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded text-sm mb-6">
+    <div class="flex">
+        <div class="py-1 no-print">
+            <svg class="fill-current h-6 w-6 text-yellow-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm12.73-1.41A8 8 0 1 0 4.34 4.34a8 8 0 0 0 11.32 11.32zM9 11V9h2v6H9v-4zm0-6h2v2H9V5z"/>
+            </svg>
+        </div>
+        <div>
+            <p class="font-bold mb-1 underline decoration-double">金額に関するご注意（免責事項）</p>
+            <p class="text-xs md:text-sm leading-relaxed text-gray-700">
+                本システムで表示される金額は、機械的な計算による「概算見積もり」です。形状の複雑さ（中空処理、微細形状、肉厚不足など）や、正式なサポート材の配置シミュレーション結果により、正式なお見積もり金額は変動する場合がございます。<br>
+                正確な金額および納期は、データを担当者が確認した後にお送りする「正式見積書」にて確定いたします。
+            </p>
+        </div>
+    </div>
+</div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="window.print()" class="bg-gray-200 px-6 py-3 rounded font-bold no-print hover:bg-gray-300">画面を印刷</button>
+                <button id="inquiry-open-btn" onclick="openInquiryModal()" disabled class="bg-blue-600 text-white px-8 py-3 rounded font-bold opacity-50 cursor-not-allowed no-print shadow-lg">この内容でお問い合わせ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="inquiry-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden no-print">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-blue-900 text-white p-4 shrink-0 flex justify-between items-center">
+                <h3 class="text-lg font-bold">・お問い合わせ前の確認</h3>
+                <button onclick="closeInquiryModal()" class="text-white hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="inquiry-scroll-container" class="p-6 overflow-y-auto" onscroll="checkScroll()">
+                <p class="text-sm text-gray-600 mb-6 font-bold bg-blue-50 p-2 rounded text-center italic">以下のアンケートにご回答の上、「送信する」ボタンを押してください。</p>
+                <form id="inquiry-form" class="formrun space-y-6" action="https://form.run/api/v1/r/x0ptvvrk4rqlzpci9bamvtvn" method="post" enctype="multipart/form-data">
+                    <div class="bg-blue-50 p-4 rounded border border-blue-100">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-800 mb-1">貴社名 <span class="text-red-500 text-xs">(必須)</span></label>
+                                <input type="text" name="貴社名" id="q-company" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="株式会社Bfull" data-formrun-required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-800 mb-1">ご担当者様名 <span class="text-red-500 text-xs">(必須)</span></label>
+                                <input type="text" name="お名前" id="q-name" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="山田 太郎" data-formrun-required>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-800 mb-1">メールアドレス <span class="text-red-500 text-xs">(必須)</span></label>
+                                <input type="text" name="メールアドレス" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="example@mail.com" data-formrun-type="email" data-formrun-required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-800 mb-1">電話番号 <span class="text-red-500 text-xs">(必須)</span></label>
+                                <input type="tel" name="電話番号" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="000-0000-0000" data-formrun-required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-800 mb-1">希望納期</label>
+                            <input type="date" name="希望納期" id="q-date" class="w-full border border-gray-300 rounded p-2 text-sm">
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-gray-50 rounded border border-gray-200">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="著作権確認" id="q-copyright" class="mt-1 w-5 h-5 text-blue-600 rounded" data-formrun-required>
+                            <span class="text-sm font-bold text-red-600">知的財産権を侵害しないデータであることを確認しました。<span class="text-red-500 ml-1">(必須)</span></span>
+                        </label>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-sm font-bold text-gray-700 mb-2 border-l-4 border-blue-500 pl-2">サポート面磨き / 塗装 / その他加工</p>
+                            <div class="grid grid-cols-3 gap-2">
+                                <label class="text-xs font-bold"><input type="checkbox" name="サポート面磨き" value="有り"> 磨き有り</label>
+                                <label class="text-xs font-bold"><input type="checkbox" name="塗装" value="有り"> 塗装有り</label>
+                                <label class="text-xs font-bold"><input type="checkbox" name="その他加工" value="有り"> その他有り</label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1 border-l-4 border-blue-500 pl-2">3Dデータ添付 <span class="text-red-500 text-xs">(必須)</span></label>
+                            <input type="file" name="添付ファイル" id="q-upload-file" class="text-xs w-full" data-formrun-required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2 border-l-4 border-blue-500 pl-2">お問い合わせ内容 <span class="text-red-500 text-xs">(必須)</span></label>
+                            <textarea name="お問い合わせ" id="q-remarks" rows="3" class="w-full border border-gray-300 rounded p-2 text-sm" data-formrun-required></textarea>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="概算合計金額" id="hidden-total">
+                    <input type="hidden" name="見積明細内容" id="hidden-details">
+                    <div class="_formrun_gotcha"><input type="text" name="_formrun_gotcha" tabindex="-1"></div>
+                    <div class="hidden"><button type="submit" id="real-submit-btn">送信</button></div>
+                </form>
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end gap-3 shrink-0 items-center">
+                <span id="scroll-instruction" class="text-xs text-red-500 font-bold mr-2 hidden animate-pulse">※最後までスクロールしてください</span>
+                <button onclick="closeInquiryModal()" class="px-4 py-2 bg-gray-200 rounded text-sm font-bold">キャンセル</button>
+                <button id="inquiry-submit-btn" onclick="submitInquiry()" class="hidden px-6 py-2 bg-blue-600 text-white rounded text-sm font-bold shadow-md">送信する</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://sdk.form.run/js/v2/formrun.js"></script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ==========================================
+        // CONFIG & STATE (強力な判定ロジックを復元)
+        // ==========================================
+        const QUOTE_CONFIG = {
+            resinSellingPrice: 21, density: 1.15, lossFactor: 1.4, machineHourlyCharge: 1260,
+            setupTime: 0.5, raftThickness: 5.0, plateSize: { x: 790, y: 790 },
+            packingEfficiency: 0.7, designFees: { small: 4200, medium: 8400, large: 12600, thresholdMedium: 100, thresholdLarge: 300 },
+            laborHourlyCharge: 12600, polishFactor: 0.001, speedControl: { minArea: 900, maxArea: 624100, maxSpeed: 5.0, minSpeed: 2.5 },
+            maxSize: { x: 790, y: 790, z: 480 }
+        };
+
+        let items = []; 
+        let nextId = 1;
+        let selectedId = null;
+
+        // ==========================================
+        // THREE.JS SETUP
+        // ==========================================
+        const container = document.getElementById('viewer-container');
+        const canvas = document.getElementById('three-canvas');
+        const scene = new THREE.Scene(); scene.background = new THREE.Color(0xf0f0f0);
+        scene.add(new THREE.GridHelper(500, 20, 0x888888, 0xcccccc));
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 5000);
+        camera.position.set(150, 150, 200);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(200, 200, 200);
+        scene.add(dirLight);
+
+        const thumbRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        thumbRenderer.setSize(128, 128);
+        const thumbScene = new THREE.Scene();
+        thumbScene.add(new THREE.DirectionalLight(0xffffff, 1.0));
+        thumbScene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const thumbCamera = new THREE.PerspectiveCamera(45, 1, 1, 1000);
+
+        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+        animate();
+
+        // ==========================================
+        // 解析・コスト計算 (安全判定を復活)
+        // ==========================================
+        async function processFile(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const geometry = new STLLoader().parse(event.target.result);
+                        geometry.computeBoundingBox(); geometry.center();
+                        const size = new THREE.Vector3(); geometry.boundingBox.getSize(size);
+                        const vol = getVolume(geometry); const area = getSurfaceArea(geometry);
+                        
+                        // 判定ロジックの復活
+                        let status = 'success'; let warnMsgs = [];
+                        if (isNaN(vol) || vol <= 0.001) { status = 'warning'; warnMsgs.push('体積異常(穴/反転)'); }
+                        if (size.x > QUOTE_CONFIG.maxSize.x || size.y > QUOTE_CONFIG.maxSize.y || size.z > QUOTE_CONFIG.maxSize.z) { status = 'warning'; warnMsgs.push('サイズ超過'); }
+
+                        const material = new THREE.MeshPhongMaterial({ color: 0x2563eb, side: THREE.DoubleSide });
+                        const mesh = new THREE.Mesh(geometry, material); mesh.rotation.x = -Math.PI / 2; mesh.position.y = size.z / 2; mesh.visible = false; scene.add(mesh);
+                        
+                        const metrics = { size: { x: size.x, y: size.y, z: size.z }, volume: vol, area: area };
+                        const thumbUrl = generateThumbnail(geometry);
+                        items.push({ id: nextId++, fileName: file.name, mesh, geometry, metrics, costs: calculateIndividualCosts(metrics), quantity: 1, thumbUrl, status, warningMessages: warnMsgs });
+                        resolve();
+                    } catch (e) { resolve(); }
+                }; reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function calculateIndividualCosts(m) {
+            const dims = [m.size.x, m.size.y, m.size.z].sort((a, b) => a - b);
+            const volCm3 = m.volume / 1000.0; const areaCm2 = m.area / 100.0;
+            return { calcSize: { x: dims[1], y: dims[2], z: dims[0] }, breakdown: { material: volCm3 * 1.15 * 1.4 * 21, labor: areaCm2 * 0.001 * 12600, machine: 0, design: 0, designLabel: "-" }, variableCost: 0, fixedCost: 0, printTime: 0, batches: 0 };
+        }
+
+        function recalculateAllGlobalCosts() {
+            if (!items.length) return;
+            let maxDim = 0, totalArea = 0, maxZ = 0;
+            items.forEach(item => {
+                if(item.status === 'error') return;
+                const s = item.metrics.size; maxDim = Math.max(maxDim, s.x, s.y, s.z);
+                const area = item.costs.calcSize.x * item.costs.calcSize.y;
+                totalArea += (area * item.quantity);
+                maxZ = Math.max(maxZ, item.costs.calcSize.z);
+            });
+
+            const designRank = maxDim < 100 ? 4200 : (maxDim < 300 ? 8400 : 12600);
+            const designLabel = maxDim < 100 ? "小" : (maxDim < 300 ? "中" : "大");
+            const feePer = Math.ceil((designRank / items.length) / 100) * 100;
+            const plateArea = 790 * 790 * 0.7;
+            const batches = Math.ceil(totalArea / plateArea) || 1;
+            const avgAreaBatch = totalArea / batches;
+            const { minArea, maxArea, maxSpeed, minSpeed } = QUOTE_CONFIG.speedControl;
+            let speedZ = avgAreaBatch <= minArea ? maxSpeed : (avgAreaBatch >= maxArea ? minSpeed : maxSpeed - ((avgAreaBatch - minArea) / (maxArea - minArea) * (maxSpeed - minSpeed)));
+            const timeBatch = ((maxZ + 5.0) / speedZ) + 0.5;
+            const totalMachineCost = timeBatch * batches * 1260;
+
+            items.forEach(item => {
+                item.costs.fixedCost = feePer;
+                item.costs.breakdown.design = feePer;
+                item.costs.breakdown.designLabel = designLabel;
+                const ratio = (item.costs.calcSize.x * item.costs.calcSize.y * item.quantity) / totalArea;
+                const myMachine = (totalMachineCost * ratio) / item.quantity;
+                item.costs.variableCost = Math.ceil((item.costs.breakdown.material + item.costs.breakdown.labor + myMachine) / 100) * 100;
+                item.costs.breakdown.machine = myMachine;
+                item.costs.printTime = timeBatch * batches;
+                item.costs.batches = batches;
+            });
+        }
+
+        // ==========================================
+        // UI描画 (数量入力欄の復活)
+        // ==========================================
+        window.renderTable = function() {
+            const tbody = document.getElementById('quote-list-body'); tbody.innerHTML = '';
+            items.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = (item.id === selectedId ? 'selected-row ' : '') + (item.status === 'warning' ? 'warning-row ' : '') + 'cursor-pointer';
+                tr.onclick = (e) => { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') selectItem(item.id); };
+                const subtotal = (item.costs.variableCost * item.quantity) + item.costs.fixedCost;
+                
+                tr.innerHTML = `
+                    <td class="text-gray-500 text-xs">${index+1}</td>
+                    <td class="text-center"><img src="${item.thumbUrl}" class="thumb-img mx-auto"></td>
+                    <td class="font-bold text-sm">${item.fileName}</td>
+                    <td class="text-xs">${Math.round(item.costs.calcSize.x)}x${Math.round(item.costs.calcSize.y)}x${Math.round(item.costs.calcSize.z)} <span class="bg-gray-200 px-1 rounded">${item.costs.breakdown.designLabel}</span></td>
+                    <td class="text-right font-mono text-sm">${item.costs.variableCost.toLocaleString()}</td>
+                    <td class="text-center">
+                        <input type="number" min="1" value="${item.quantity}" 
+                            onchange="window.updateQuantity(${item.id}, this.value)" 
+                            class="w-16 border rounded text-center font-bold">
+                    </td>
+                    <td class="text-right text-blue-800 font-mono text-sm">${Math.ceil(item.costs.fixedCost/item.quantity).toLocaleString()}</td>
+                    <td class="text-right font-bold font-mono text-sm">${subtotal.toLocaleString()}</td>
+                    <td class="no-print"><button onclick="deleteItem(${item.id})" class="text-red-500">×</button></td>`;
+                tbody.appendChild(tr);
+            });
+            updateGrandTotal();
+            const dz = document.getElementById('drop-zone'); if(dz) dz.style.display = (items.length === 0) ? 'flex' : 'none';
+        }
+
+        window.updateQuantity = (id, q) => { const item = items.find(i => i.id === id); if(item) { item.quantity = Math.max(1, parseInt(q)||1); recalculateAllGlobalCosts(); if(selectedId === id) selectItem(id); renderTable(); } }
+        window.applyBulkQuantity = () => { const q = parseInt(document.getElementById('bulk-qty-input').value) || 1; items.forEach(i => i.quantity = q); recalculateAllGlobalCosts(); renderTable(); }
+
+        window.selectItem = (id) => {
+            selectedId = id; items.forEach(i => { if(i.mesh) i.mesh.visible = (i.id === id); });
+            const item = items.find(i => i.id === id);
+            if(item && item.mesh) {
+                document.getElementById('selected-item-details').classList.remove('hidden'); document.getElementById('empty-state-msg').classList.add('hidden');
+                const alertBox = document.getElementById('status-alert-box');
+                if(item.status === 'warning') { alertBox.classList.remove('hidden'); alertBox.className = "mb-4 p-2 rounded bg-yellow-100 text-yellow-800 text-xs font-bold"; alertBox.innerHTML = `⚠️ ${item.warningMessages.join(', ')}`; }
+                else { alertBox.classList.add('hidden'); }
+                
+                const s = item.costs.calcSize; const m = item.metrics; const c = item.costs.breakdown;
+                document.getElementById('detail-size').innerText = `${Math.round(s.x)} x ${Math.round(s.y)} x ${Math.round(s.z)} mm`;
+                document.getElementById('detail-volume').innerText = `${Math.round(m.volume/1000).toLocaleString()} cm³`;
+                document.getElementById('detail-area').innerText = `${Math.round(m.area/100).toLocaleString()} cm²`;
+                document.getElementById('detail-time').innerText = `${item.costs.printTime.toFixed(1)}h (${item.costs.batches}回)`;
+                document.getElementById('breakdown-material').innerText = Math.round(c.material).toLocaleString() + " 円";
+                document.getElementById('breakdown-labor').innerText = Math.round(c.labor).toLocaleString() + " 円";
+                document.getElementById('breakdown-machine').innerText = Math.round(c.machine).toLocaleString() + " 円";
+                document.getElementById('breakdown-design').innerText = Math.ceil(item.costs.fixedCost/item.quantity).toLocaleString() + " 円";
+                document.getElementById('breakdown-variable-unit').innerText = Math.ceil(((item.costs.variableCost * item.quantity) + item.costs.fixedCost) / item.quantity).toLocaleString() + " 円";
+                
+                const maxDim = Math.max(item.metrics.size.x, item.metrics.size.y, item.metrics.size.z);
+                camera.position.set(maxDim*1.5, maxDim*1.5, maxDim*1.5); camera.lookAt(0,0,0); controls.update();
+            } renderTable();
+        }
+
+        // ==========================================
+        // 送信処理 (formrun連携)
+        // ==========================================
+        window.submitInquiry = function() {
+            const hT = document.getElementById('hidden-total'); const hD = document.getElementById('hidden-details');
+            if(hT) hT.value = document.getElementById('header-grand-total').innerText;
+            if(hD) hD.value = items.map((i, idx) => `${idx+1}. ${i.fileName} [${Math.round(i.costs.calcSize.x)}x${Math.round(i.costs.calcSize.y)}x${Math.round(i.costs.calcSize.z)}mm / ${i.quantity}個]`).join('\n');
+            document.getElementById('real-submit-btn').click();
+        };
+
+        window.openInquiryModal = () => { document.getElementById('inquiry-modal').classList.remove('hidden'); checkScroll(); };
+        window.closeInquiryModal = () => document.getElementById('inquiry-modal').classList.add('hidden');
+        window.checkScroll = () => { const c = document.getElementById('inquiry-scroll-container'); if(c && c.scrollTop + c.clientHeight >= c.scrollHeight - 20) { document.getElementById('inquiry-submit-btn').classList.remove('hidden'); document.getElementById('scroll-instruction').classList.add('hidden'); } };
+
+        // 共通イベント
+        async function handleFiles(fileList) {
+            const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith(".stl")); if(!files.length) return;
+            document.getElementById('loading-overlay').style.display='flex';
+            for(const f of files) await processFile(f);
+            document.getElementById('loading-overlay').style.display='none'; 
+            recalculateAllGlobalCosts(); if(items.length) selectItem(items[items.length-1].id); renderTable();
+        }
+        document.getElementById('file-input').addEventListener('change', (e) => handleFiles(e.target.files));
+        document.getElementById('drop-zone').addEventListener("drop", (e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); });
+        document.getElementById('drop-zone').addEventListener("dragover", (e) => e.preventDefault());
+        document.getElementById('drop-zone').addEventListener("click", () => document.getElementById('drop-input').click());
+        document.getElementById('drop-input').addEventListener('change', (e) => handleFiles(e.target.files));
+
+        function updateGrandTotal() {
+            const total = items.reduce((sum, i) => sum + (i.costs.variableCost * i.quantity + i.costs.fixedCost), 0);
+            const text = total.toLocaleString() + " 円";
+            ['header-grand-total', 'footer-grand-total'].forEach(id => { const el = document.getElementById(id); if(el) el.innerText = text; });
+            document.getElementById('inquiry-open-btn').disabled = items.length === 0;
+            document.getElementById('inquiry-open-btn').classList.toggle('opacity-50', items.length === 0);
+        }
+
+        window.deleteItem = (id) => { const idx = items.findIndex(i => i.id === id); if(idx>-1) { scene.remove(items[idx].mesh); items.splice(idx,1); recalculateAllGlobalCosts(); renderTable(); } }
+        window.clearAllItems = () => { if(confirm("全て削除しますか？")) { items.forEach(i => scene.remove(i.mesh)); items = []; renderTable(); } }
+
+        function getVolume(g) { let pos = g.attributes.position, sum = 0, p1 = new THREE.Vector3(), p2 = new THREE.Vector3(), p3 = new THREE.Vector3(); for (let i=0; i<pos.count/3; i++) { p1.fromBufferAttribute(pos, i*3); p2.fromBufferAttribute(pos, i*3+1); p3.fromBufferAttribute(pos, i*3+2); sum += p1.dot(p2.cross(p3)) / 6.0; } return Math.abs(sum); }
+        function getSurfaceArea(g) { let pos = g.attributes.position, sum = 0, p1 = new THREE.Vector3(), p2 = new THREE.Vector3(), p3 = new THREE.Vector3(); for (let i=0; i<pos.count/3; i++) { p1.fromBufferAttribute(pos, i*3); p2.fromBufferAttribute(pos, i*3+1); p3.fromBufferAttribute(pos, i*3+2); sum += 0.5 * new THREE.Vector3().subVectors(p2, p1).cross(new THREE.Vector3().subVectors(p3, p1)).length(); } return sum; }
+        function generateThumbnail(g) { const mesh = new THREE.Mesh(g.clone(), new THREE.MeshPhongMaterial({ color: 0x2563eb })); thumbScene.add(mesh); const size = new THREE.Vector3(); g.boundingBox.getSize(size); thumbCamera.position.set(0, 0, Math.max(size.x, size.y, size.z)*1.5); thumbCamera.lookAt(0,0,0); thumbRenderer.render(thumbScene, thumbCamera); const url = thumbRenderer.domElement.toDataURL(); thumbScene.remove(mesh); return url; }
+
+    </script>
+</body>
+</html>
