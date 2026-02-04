@@ -167,70 +167,108 @@
             </div>
             <div id="inquiry-scroll-container" class="p-6 overflow-y-auto" onscroll="checkScroll()">
                 <p class="text-sm text-gray-600 mb-6 font-bold bg-blue-50 p-2 rounded text-center italic">以下のアンケートにご回答の上、「送信する」ボタンを押してください。</p>
+                
                 <form id="inquiry-form" class="formrun space-y-6" action="https://form.run/api/v1/r/x0ptvvrk4rqlzpci9bamvtvn" method="post" enctype="multipart/form-data">
                     <div class="bg-blue-50 p-4 rounded border border-blue-100">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label class="block text-sm font-bold text-gray-800 mb-1">貴社名 <span class="text-red-500 text-xs">(必須)</span></label>
-                                <input type="text" name="貴社名" id="q-company" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="株式会社Bfull" data-formrun-required>
+                                <input type="text" name="貴社名" id="q-company" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="株式会社Bfull" data-formrun-required>
+                                <div data-formrun-show-if-error="貴社名" class="text-red-500 text-xs mt-1">貴社名を入力してください</div>
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-800 mb-1">ご担当者様名 <span class="text-red-500 text-xs">(必須)</span></label>
-                                <input type="text" name="お名前" id="q-name" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="山田 太郎" data-formrun-required>
+                                <input type="text" name="お名前" id="q-name" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="山田 太郎" data-formrun-required>
+                                <div data-formrun-show-if-error="お名前" class="text-red-500 text-xs mt-1">お名前を入力してください</div>
                             </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label class="block text-sm font-bold text-gray-800 mb-1">メールアドレス <span class="text-red-500 text-xs">(必須)</span></label>
-                                <input type="text" name="メールアドレス" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="example@mail.com" data-formrun-type="email" data-formrun-required>
+                                <input type="text" name="メールアドレス" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="example@mail.com" data-formrun-type="email" data-formrun-required>
+                                <div data-formrun-show-if-error="メールアドレス" class="text-red-500 text-xs mt-1">メールアドレスを正しく入力してください</div>
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-800 mb-1">電話番号 <span class="text-red-500 text-xs">(必須)</span></label>
-                                <input type="tel" name="電話番号" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="000-0000-0000" data-formrun-required>
+                                <input type="tel" name="電話番号" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="000-0000-0000" data-formrun-required>
+                                <div data-formrun-show-if-error="電話番号" class="text-red-500 text-xs mt-1">電話番号を入力してください</div>
                             </div>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-800 mb-1">希望納期</label>
-                            <input type="date" name="希望納期" id="q-date" class="w-full border border-gray-300 rounded p-2 text-sm">
+                            <input type="date" name="希望納期" id="q-date" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
 
                     <div class="p-4 bg-gray-50 rounded border border-gray-200">
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" name="著作権確認" id="q-copyright" class="mt-1 w-5 h-5 text-blue-600 rounded" data-formrun-required>
-                            <span class="text-sm font-bold text-red-600">知的財産権を侵害しないデータであることを確認しました。<span class="text-red-500 ml-1">(必須)</span></span>
+                            <span class="text-sm font-bold text-gray-800 leading-tight text-red-600">著作権・商標権など知的財産権を侵害しないデータであることを確認しました。<span class="text-red-500 ml-1">(必須)</span></span>
                         </label>
+                        <div data-formrun-show-if-error="著作権確認" class="text-red-500 text-xs mt-1 font-bold">確認のチェックをお願いします</div>
                     </div>
                     
                     <div class="space-y-4">
                         <div>
-                            <p class="text-sm font-bold text-gray-700 mb-2 border-l-4 border-blue-500 pl-2">サポート面磨き / 塗装 / その他加工</p>
-                            <div class="grid grid-cols-3 gap-2">
-                                <label class="text-xs font-bold"><input type="checkbox" name="サポート面磨き" value="有り"> 磨き有り</label>
-                                <label class="text-xs font-bold"><input type="checkbox" name="塗装" value="有り"> 塗装有り</label>
-                                <label class="text-xs font-bold"><input type="checkbox" name="その他加工" value="有り"> その他有り</label>
+                            <p class="text-sm font-bold text-gray-700 mb-2 border-l-4 border-blue-500 pl-2">サポート面磨きの有無</p>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="サポート面磨き" value="無し" checked class="w-4 h-4"> <span class="text-sm">無し</span></label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="サポート面磨き" value="有り" class="w-4 h-4"> <span class="text-sm">有り</span></label>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1 border-l-4 border-blue-500 pl-2">3Dデータ添付 <span class="text-red-500 text-xs">(必須)</span></label>
-                            <input type="file" name="添付ファイル" id="q-upload-file" class="text-xs w-full" data-formrun-required>
+                            <p class="text-sm font-bold text-gray-700 mb-2 border-l-4 border-blue-500 pl-2">塗装の有無</p>
+                            <div class="flex gap-4"><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="塗装" value="無し" checked class="w-4 h-4"> <span class="text-sm">無し</span></label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="塗装" value="有り" class="w-4 h-4"> <span class="text-sm">有り</span></label></div>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2 border-l-4 border-blue-500 pl-2">お問い合わせ内容 <span class="text-red-500 text-xs">(必須)</span></label>
-                            <textarea name="お問い合わせ" id="q-remarks" rows="3" class="w-full border border-gray-300 rounded p-2 text-sm" data-formrun-required></textarea>
+                            <p class="text-sm font-bold text-gray-700 mb-2 border-l-4 border-blue-500 pl-2">その他加工の有無</p>
+                            <div class="flex gap-4"><label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="その他加工" value="無し" checked class="w-4 h-4"> <span class="text-sm">無し</span></label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="その他加工" value="有り" class="w-4 h-4"> <span class="text-sm">有り</span></label></div>
                         </div>
+                    </div>
+
+                    <!-- 3Dデータ添付セクション -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1 border-l-4 border-blue-500 pl-2">3Dデータ添付 <span class="text-red-500 text-xs">(必須)</span></label>
+                        <p class="text-[10px] text-red-600 font-bold mb-2">※複数のデータがある場合は、1つのフォルダにまとめて圧縮(ZIP等)してアップロードしてください。</p>
+                        <div id="file-drop-container" class="relative border-2 border-dashed border-gray-300 rounded-lg p-4 hover:bg-gray-50 text-center transition group">
+                            <input type="file" name="添付ファイル" id="q-upload-file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" data-formrun-required>
+                            <div class="pointer-events-none" id="file-drop-ui">
+                                <div id="file-icon-wrapper">
+                                    <svg class="mx-auto h-8 w-8 text-gray-400 group-hover:text-blue-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                                </div>
+                                <p id="file-drop-text" class="mt-1 text-xs text-gray-600 font-bold">圧縮ファイル(ZIP)またはSTLを選択</p>
+                            </div>
+                        </div>
+                        <div id="attached-file-list" class="mt-2 space-y-1"></div>
+                        <div data-formrun-show-if-error="添付ファイル" class="text-red-500 text-xs mt-1 font-bold">ファイルを添付してください。</div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2 border-l-4 border-blue-500 pl-2">お問い合わせ内容 <span class="text-red-500 text-xs">(必須)</span></label>
+                        <textarea name="お問い合わせ" id="q-remarks" rows="3" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="要望などがあればご記入ください。" data-formrun-required></textarea>
+                        <div data-formrun-show-if-error="お問い合わせ" class="text-red-500 text-xs mt-1">お問い合わせ内容を入力してください</div>
                     </div>
 
                     <input type="hidden" name="概算合計金額" id="hidden-total">
                     <input type="hidden" name="見積明細内容" id="hidden-details">
-                    <div class="_formrun_gotcha"><input type="text" name="_formrun_gotcha" tabindex="-1"></div>
-                    <div class="hidden"><button type="submit" id="real-submit-btn">送信</button></div>
+
+                    <div class="_formrun_gotcha">
+                        <style media="screen">._formrun_gotcha {position:absolute!important;height:1px;width:1px;overflow:hidden;}</style>
+                        <label for="_formrun_gotcha">If you are a human, ignore this field</label>
+                        <input type="text" name="_formrun_gotcha" id="_formrun_gotcha" tabindex="-1">
+                    </div>
+
+                    <div class="hidden">
+                        <button type="submit" id="real-submit-btn" data-formrun-error-text="未入力の項目があります" data-formrun-submitting-text="送信中...">送信</button>
+                    </div>
                 </form>
             </div>
             <div class="p-4 border-t bg-gray-50 flex justify-end gap-3 shrink-0 items-center">
                 <span id="scroll-instruction" class="text-xs text-red-500 font-bold mr-2 hidden animate-pulse">※最後までスクロールしてください</span>
                 <button onclick="closeInquiryModal()" class="px-4 py-2 bg-gray-200 rounded text-sm font-bold">キャンセル</button>
-                <button id="inquiry-submit-btn" onclick="submitInquiry()" class="hidden px-6 py-2 bg-blue-600 text-white rounded text-sm font-bold shadow-md">送信する</button>
+                <button id="inquiry-submit-btn" onclick="submitInquiry()" class="hidden px-6 py-2 bg-blue-600 text-white rounded text-sm font-bold shadow-md hover:bg-blue-700 transition">送信する</button>
             </div>
         </div>
     </div>
