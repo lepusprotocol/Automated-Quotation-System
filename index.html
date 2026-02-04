@@ -232,17 +232,7 @@
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1 border-l-4 border-blue-500 pl-2">3Dデータ添付 <span class="text-red-500 text-xs">(必須)</span></label>
                         <p class="text-[10px] text-red-600 font-bold mb-2">※複数のデータがある場合は、1つのフォルダにまとめて圧縮(ZIP等)してアップロードしてください。</p>
-                        <div id="file-drop-container" class="relative border-2 border-dashed border-gray-300 rounded-lg p-4 hover:bg-gray-50 text-center transition group">
-                            <input type="file" name="添付ファイル" id="q-upload-file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" data-formrun-required>
-                            <div class="pointer-events-none" id="file-drop-ui">
-                                <div id="file-icon-wrapper">
-                                    <svg class="mx-auto h-8 w-8 text-gray-400 group-hover:text-blue-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                                </div>
-                                <p id="file-drop-text" class="mt-1 text-xs text-gray-600 font-bold">圧縮ファイル(ZIP)またはSTLを選択</p>
-                            </div>
-                        </div>
-                        <div id="attached-file-list" class="mt-2 space-y-1"></div>
-                        <div data-formrun-show-if-error="添付ファイル" class="text-red-500 text-xs mt-1 font-bold">ファイルを添付してください。</div>
+                        <input type="file" name="添付ファイル" id="q-upload-file" class="text-xs w-full" data-formrun-required>
                     </div>
 
                     <div>
